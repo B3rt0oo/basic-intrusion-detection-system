@@ -11,6 +11,7 @@ import (
     "github.com/B3rt0oo/basic-intrusion-detection-system/internal/config"
     "github.com/B3rt0oo/basic-intrusion-detection-system/internal/detect"
     "github.com/B3rt0oo/basic-intrusion-detection-system/internal/metrics"
+    "github.com/B3rt0oo/basic-intrusion-detection-system/internal/logging"
     "github.com/B3rt0oo/basic-intrusion-detection-system/internal/pipeline"
     "github.com/B3rt0oo/basic-intrusion-detection-system/internal/types"
 )
@@ -27,6 +28,8 @@ func main() {
         fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
         os.Exit(2)
     }
+
+    log := logging.New("info")
 
     // Build detectors
     var dets []pipeline.Detector
@@ -50,9 +53,7 @@ func main() {
 
     if *metricsAddr != "" {
         go func() {
-            if err := metrics.Serve(*metricsAddr); err != nil {
-                fmt.Fprintf(os.Stderr, "metrics server failed: %v\n", err)
-            }
+            _ = metrics.Serve(*metricsAddr)
         }()
     }
 
@@ -110,12 +111,15 @@ func main() {
             ev.TS = time.Now().UTC()
         }
         metrics.EventsTotal.Inc()
+        start := time.Now()
         alerts := eng.Process(ev)
+        metrics.ObserveDuration(start)
         for _, a := range alerts {
             for _, s := range sinks {
                 _ = s.Emit(a)
             }
             metrics.AlertsTotal.WithLabelValues(a.Type).Inc()
+            log.Info("alert", "type", a.Type, "src", a.SrcIP, "ports", a.DstPorts)
         }
     }
 }

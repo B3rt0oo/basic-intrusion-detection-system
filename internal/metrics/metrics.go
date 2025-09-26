@@ -1,8 +1,9 @@
 package metrics
 
 import (
-    "log"
     "net/http"
+    "net/http/pprof"
+    "time"
 
     "github.com/prometheus/client_golang/prometheus"
     "github.com/prometheus/client_golang/prometheus/promauto"
@@ -18,14 +19,28 @@ var (
     AlertsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
         Namespace: "ids", Subsystem: "detect", Name: "alerts_total", Help: "Total alerts emitted by type",
     }, []string{"type"})
+    // ProcessLatency measures per-event processing time.
+    ProcessLatency = promauto.NewHistogram(prometheus.HistogramOpts{
+        Namespace: "ids", Subsystem: "pipeline", Name: "process_latency_seconds", Help: "Event processing latency",
+        Buckets: prometheus.DefBuckets,
+    })
 )
 
 // Serve starts an HTTP server exposing Prometheus metrics.
 func Serve(addr string) error {
     mux := http.NewServeMux()
     mux.Handle("/metrics", promhttp.Handler())
+    mux.HandleFunc("/debug/pprof/", pprof.Index)
+    mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+    mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+    mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+    mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
     srv := &http.Server{Addr: addr, Handler: mux}
-    log.Printf("metrics listening on %s", addr)
     return srv.ListenAndServe()
 }
 
+// ObserveDuration is a helper to record latency via defer.
+func ObserveDuration(start time.Time) {
+    dur := time.Since(start).Seconds()
+    ProcessLatency.Observe(dur)
+}

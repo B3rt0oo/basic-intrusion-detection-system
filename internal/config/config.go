@@ -45,9 +45,12 @@ type Rule struct {
     Name     string `json:"name"`
     Severity string `json:"severity"`
     Proto    string `json:"proto,omitempty"`
-    SrcIP    string `json:"src_ip,omitempty"`
-    DstIP    string `json:"dst_ip,omitempty"`
-    DstPort  int    `json:"dst_port,omitempty"`
+    SrcIP    string `json:"src_ip,omitempty"`    // single IP (legacy)
+    DstIP    string `json:"dst_ip,omitempty"`    // single IP (legacy)
+    DstPort  int    `json:"dst_port,omitempty"`  // single port (legacy)
+    SrcCIDR  string `json:"src_cidr,omitempty"`  // CIDR, e.g., 10.0.0.0/8
+    DstCIDR  string `json:"dst_cidr,omitempty"`
+    DstPorts string `json:"dst_ports,omitempty"` // list/ranges: "22,80,443,1000-2000"
 }
 
 func Default() Config {
