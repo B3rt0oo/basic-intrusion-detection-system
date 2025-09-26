@@ -47,11 +47,19 @@ func (s *LivePCAPSource) Next() (types.PacketEvent, bool) {
     }
     if dnsL := pkt.Layer(layers.LayerTypeDNS); dnsL != nil {
         dns := dnsL.(*layers.DNS)
+        ev.Proto = "dns"
         if dns.QR == false && len(dns.Questions) > 0 { // query
-            ev.Proto = "dns"
             ev.DNSQName = string(dns.Questions[0].Name)
             ev.DNSQType = dns.Questions[0].Type.String()
-            // Best-effort port: take UDP/TCP dst port if present
+            ev.DNSResp = false
+            ev.DNSRcode = ""
+        } else if dns.QR == true { // response
+            ev.DNSResp = true
+            ev.DNSRcode = dns.ResponseCode.String()
+            if len(dns.Questions) > 0 {
+                ev.DNSQName = string(dns.Questions[0].Name)
+                ev.DNSQType = dns.Questions[0].Type.String()
+            }
         }
     }
     if tcpL := pkt.Layer(layers.LayerTypeTCP); tcpL != nil {

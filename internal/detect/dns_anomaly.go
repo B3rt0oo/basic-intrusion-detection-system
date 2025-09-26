@@ -1,9 +1,9 @@
 package detect
 
 import (
+    "math"
     "strings"
     "time"
-    "math"
 
     "golang.org/x/net/publicsuffix"
 
@@ -13,10 +13,12 @@ import (
 type DNSAnomalyConfig struct {
     Enabled                  bool
     Window                   time.Duration
-    UniqueSubsPerBaseThresh  int    // unique subdomains per base within window
-    LongNameLength           int    // single fqdn length threshold
-    QueryRatePerSrcThreshold int    // total queries per src within window
+    UniqueSubsPerBaseThresh  int     // unique subdomains per base within window
+    LongNameLength           int     // single fqdn length threshold
+    QueryRatePerSrcThreshold int     // total queries per src within window
     EntropyThreshold         float64
+    NxDomainRatioThreshold   float64 // 0..1, require MinResponses to evaluate
+    MinResponses             int
 }
 
 type DNSAnomalyDetector struct {
@@ -26,10 +28,11 @@ type DNSAnomalyDetector struct {
 }
 
 type dnsObs struct {
-    ts   time.Time
-    base string
-    sub  string
-    fqdn string
+    ts    time.Time
+    base  string
+    sub   string
+    fqdn  string
+    rcode string
 }
 
 func NewDNSAnomalyDetector(cfg DNSAnomalyConfig) *DNSAnomalyDetector {
@@ -38,6 +41,8 @@ func NewDNSAnomalyDetector(cfg DNSAnomalyConfig) *DNSAnomalyDetector {
     if cfg.LongNameLength <= 0 { cfg.LongNameLength = 60 }
     if cfg.QueryRatePerSrcThreshold <= 0 { cfg.QueryRatePerSrcThreshold = 200 }
     if cfg.EntropyThreshold <= 0 { cfg.EntropyThreshold = 3.5 }
+    if cfg.NxDomainRatioThreshold <= 0 { cfg.NxDomainRatioThreshold = 0.5 }
+    if cfg.MinResponses <= 0 { cfg.MinResponses = 20 }
     return &DNSAnomalyDetector{cfg: cfg, queries: make(map[string][]dnsObs)}
 }
 
@@ -47,7 +52,9 @@ func (d *DNSAnomalyDetector) Process(ev types.PacketEvent) []types.Alert {
     windowStart := now.Add(-d.cfg.Window)
 
     base, sub := splitBaseSub(ev.DNSQName)
-    obs := dnsObs{ts: now, base: base, sub: sub, fqdn: ev.DNSQName}
+    rc := ""
+    if ev.DNSResp { rc = ev.DNSRcode }
+    obs := dnsObs{ts: now, base: base, sub: sub, fqdn: ev.DNSQName, rcode: rc}
     hist := append(d.queries[ev.SrcIP], obs)
     // trim by time
     i := 0
@@ -73,12 +80,16 @@ func (d *DNSAnomalyDetector) Process(ev types.PacketEvent) []types.Alert {
     // Unique subdomains per base
     subs := make(map[string]struct{})
     count := 0
+    resp := 0
+    nxd := 0
     for _, h := range hist {
         if h.base == base {
             subs[h.sub] = struct{}{}
         }
         // count all queries for rate
         count++
+        if h.rcode != "" { resp++ }
+        if h.rcode == "NXDOMAIN" { nxd++ }
     }
     if len(subs) >= d.cfg.UniqueSubsPerBaseThresh && base != "" {
         alerts = append(alerts, types.Alert{
@@ -101,6 +112,21 @@ func (d *DNSAnomalyDetector) Process(ev types.PacketEvent) []types.Alert {
             WindowSecs: int(d.cfg.Window / time.Second),
             Details:    "high DNS query rate",
         })
+    }
+
+    // NXDOMAIN ratio alert
+    if resp >= d.cfg.MinResponses && resp > 0 {
+        ratio := float64(nxd) / float64(resp)
+        if ratio >= d.cfg.NxDomainRatioThreshold {
+            alerts = append(alerts, types.Alert{
+                TS:         now,
+                Type:       "dns_nxdomain_ratio",
+                Severity:   "low",
+                SrcIP:      ev.SrcIP,
+                WindowSecs: int(d.cfg.Window / time.Second),
+                Details:    "high NXDOMAIN ratio",
+            })
+        }
     }
 
     // High-entropy subdomain suspicious

@@ -13,6 +13,8 @@ type PacketEvent struct {
     // DNS (optional)
     DNSQName string `json:"dns_qname,omitempty"`
     DNSQType string `json:"dns_qtype,omitempty"`
+    DNSResp  bool   `json:"dns_resp,omitempty"`
+    DNSRcode string `json:"dns_rcode,omitempty"`
 }
 
 // Alert represents a detection output item.

@@ -17,6 +17,7 @@ Layout:
 - `internal/detect` — detection engines (port scan in this iteration).
 - `internal/detect` — detection engines: port scan, connection-rate, signatures.
 - `internal/detect` — DNS anomaly detector (unique subdomains, long names, rate).
+ - `internal/detect` — DNS anomaly detector (unique subdomains, long names, rate, NXDOMAIN ratio, entropy).
 - `internal/pipeline` — event fan‑out and alert aggregation.
 - `internal/types` — shared data types.
 
@@ -58,6 +59,22 @@ Where config includes:
 {
   "input": { "type": "pcap-live", "device": "eth0", "bpf": "tcp or udp" }
 }
+
+eBPF live capture (advanced):
+
+```bash
+# Build ebpf-enabled binary
+go build -tags=ebpf ./cmd/ids
+
+# Build BPF object (requires clang/llvm)
+cd bpf && make && cd ..
+
+# Configure and run (requires privileges)
+jq '.input={"type":"ebpf-live","program":"./bpf/ids_bpf.o"}' config.example.json > /tmp/ids-ebpf.json
+sudo ./ids -config /tmp/ids-ebpf.json
+```
+
+Note: the included BPF program is a minimal skeleton; attach points to push events into the ring buffer need to be implemented for production use.
 
 System prerequisites for live capture:
 
