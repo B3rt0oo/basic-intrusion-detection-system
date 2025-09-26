@@ -1,0 +1,36 @@
+run:
+  timeout: 5m
+  issues-exit-code: 1
+
+linters:
+  enable:
+    - govet
+    - gosimple
+    - staticcheck
+    - ineffassign
+    - typecheck
+    - errcheck
+    - gofmt
+    - goimports
+    - misspell
+    - gocritic
+    - revive
+
+linters-settings:
+  gofmt:
+    simplify: true
+  gocritic:
+    disabled-checks:
+      - ifElseChain
+  revive:
+    rules:
+      - name: indent-error-flow
+      - name: errorf
+      - name: exported
+        severity: warning
+        disabled: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
