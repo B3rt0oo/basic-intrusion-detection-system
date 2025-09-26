@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+      - name: Tidy
+        run: |
+          cd external/basic-ids || true
+          go mod tidy
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59
+          working-directory: external/basic-ids
+      - name: Vet
+        run: |
+          cd external/basic-ids
+          go vet ./...
+      - name: Build
+        run: |
+          cd external/basic-ids
+          go build ./...
+      - name: Test
+        run: |
+          cd external/basic-ids
+          go test -race -cover ./...
+      - name: Enforce detect coverage >= 80%
+        run: |
+          cd external/basic-ids
+          go test -race -coverprofile=detect.cov ./internal/detect
+          pct=$(go tool cover -func=detect.cov | awk '/total:/ {print $3}' | tr -d '%')
+          awk -v p="$pct" 'BEGIN { if (p+0 < 80) { printf "Detect coverage %.1f%% < 80%%\n", p; exit 1 } else { printf "Detect coverage OK: %.1f%%\n", p } }'
+
+  pcap-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+      - name: Install libpcap
+        run: sudo apt-get update && sudo apt-get install -y libpcap-dev
+      - name: Build with pcap tag
+        run: |
+          cd external/basic-ids
+          go mod tidy
+          go build -tags=pcap ./cmd/ids
