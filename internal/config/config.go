@@ -13,6 +13,7 @@ type Config struct {
         Type   string `json:"type"`   // "jsonl-stdin" or "pcap-live"
         Device string `json:"device"` // for pcap-live
         BPF    string `json:"bpf"`    // optional BPF filter
+        Program string `json:"program"` // for ebpf-live: path to .o
     } `json:"input"`
 
     // Port-scan detector settings
@@ -36,6 +37,7 @@ type Config struct {
         UniqueSubsPerBaseThresh  int           `json:"unique_subs_per_base_thresh"`
         LongNameLength           int           `json:"long_name_length"`
         QueryRatePerSrcThreshold int           `json:"query_rate_per_src_threshold"`
+        EntropyThreshold         float64       `json:"entropy_threshold"`
     } `json:"dns_anomaly"`
 
     // Alert sinks
@@ -79,6 +81,7 @@ func Default() Config {
     c.DNSAnomaly.UniqueSubsPerBaseThresh = 50
     c.DNSAnomaly.LongNameLength = 60
     c.DNSAnomaly.QueryRatePerSrcThreshold = 200
+    c.DNSAnomaly.EntropyThreshold = 3.5
     c.Alerts.Stdout = true
     c.Alerts.File = ""
     c.Alerts.Syslog = false

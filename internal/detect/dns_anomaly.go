@@ -3,6 +3,7 @@ package detect
 import (
     "strings"
     "time"
+    "math"
 
     "golang.org/x/net/publicsuffix"
 
@@ -15,6 +16,7 @@ type DNSAnomalyConfig struct {
     UniqueSubsPerBaseThresh  int    // unique subdomains per base within window
     LongNameLength           int    // single fqdn length threshold
     QueryRatePerSrcThreshold int    // total queries per src within window
+    EntropyThreshold         float64
 }
 
 type DNSAnomalyDetector struct {
@@ -35,6 +37,7 @@ func NewDNSAnomalyDetector(cfg DNSAnomalyConfig) *DNSAnomalyDetector {
     if cfg.UniqueSubsPerBaseThresh <= 0 { cfg.UniqueSubsPerBaseThresh = 50 }
     if cfg.LongNameLength <= 0 { cfg.LongNameLength = 60 }
     if cfg.QueryRatePerSrcThreshold <= 0 { cfg.QueryRatePerSrcThreshold = 200 }
+    if cfg.EntropyThreshold <= 0 { cfg.EntropyThreshold = 3.5 }
     return &DNSAnomalyDetector{cfg: cfg, queries: make(map[string][]dnsObs)}
 }
 
@@ -100,6 +103,19 @@ func (d *DNSAnomalyDetector) Process(ev types.PacketEvent) []types.Alert {
         })
     }
 
+    // High-entropy subdomain suspicious
+    if sub != "" {
+        if ent := shannonEntropy(sub); ent >= d.cfg.EntropyThreshold && len(ev.DNSQName) >= d.cfg.LongNameLength {
+            alerts = append(alerts, types.Alert{
+                TS:       now,
+                Type:     "dns_entropy",
+                Severity: "low",
+                SrcIP:    ev.SrcIP,
+                Details:  ev.DNSQName,
+            })
+        }
+    }
+
     return alerts
 }
 
@@ -118,3 +134,18 @@ func splitBaseSub(qname string) (base string, sub string) {
     return
 }
 
+func shannonEntropy(s string) float64 {
+    if s == "" { return 0 }
+    var counts [256]int
+    for i := 0; i < len(s); i++ {
+        counts[s[i]]++
+    }
+    var ent float64
+    n := float64(len(s))
+    for i := 0; i < len(counts); i++ {
+        if counts[i] == 0 { continue }
+        p := float64(counts[i]) / n
+        ent -= p * math.Log2(p)
+    }
+    return ent
+}

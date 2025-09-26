@@ -105,6 +105,13 @@ func main() {
             os.Exit(2)
         }
         src = live
+    case "ebpf-live":
+        live, err := capture.NewEBPFSource(cfg.Input.Program)
+        if err != nil {
+            fmt.Fprintf(os.Stderr, "ebpf init failed: %v\n", err)
+            os.Exit(2)
+        }
+        src = live
     default:
         fmt.Fprintf(os.Stderr, "unsupported input type: %s\n", cfg.Input.Type)
         os.Exit(2)
