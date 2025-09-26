@@ -30,6 +30,14 @@ type Config struct {
         Window    time.Duration `json:"window"`
     } `json:"conn_rate"`
 
+    DNSAnomaly struct {
+        Enabled                  bool          `json:"enabled"`
+        Window                   time.Duration `json:"window"`
+        UniqueSubsPerBaseThresh  int           `json:"unique_subs_per_base_thresh"`
+        LongNameLength           int           `json:"long_name_length"`
+        QueryRatePerSrcThreshold int           `json:"query_rate_per_src_threshold"`
+    } `json:"dns_anomaly"`
+
     // Alert sinks
     Alerts struct {
         Stdout bool   `json:"stdout"`
@@ -51,6 +59,9 @@ type Rule struct {
     SrcCIDR  string `json:"src_cidr,omitempty"`  // CIDR, e.g., 10.0.0.0/8
     DstCIDR  string `json:"dst_cidr,omitempty"`
     DstPorts string `json:"dst_ports,omitempty"` // list/ranges: "22,80,443,1000-2000"
+    DNSQnameSuffix string `json:"dns_qname_suffix,omitempty"`
+    DNSQnameRegex  string `json:"dns_qname_regex,omitempty"`
+    DNSQtype       string `json:"dns_qtype,omitempty"`
 }
 
 func Default() Config {
@@ -63,6 +74,11 @@ func Default() Config {
     c.ConnRate.Enabled = true
     c.ConnRate.Threshold = 100
     c.ConnRate.Window = 10 * time.Second
+    c.DNSAnomaly.Enabled = true
+    c.DNSAnomaly.Window = 60 * time.Second
+    c.DNSAnomaly.UniqueSubsPerBaseThresh = 50
+    c.DNSAnomaly.LongNameLength = 60
+    c.DNSAnomaly.QueryRatePerSrcThreshold = 200
     c.Alerts.Stdout = true
     c.Alerts.File = ""
     c.Alerts.Syslog = false

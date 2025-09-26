@@ -2,6 +2,7 @@ package detect
 
 import (
     "net/netip"
+    "regexp"
     "strconv"
     "strings"
 
@@ -23,6 +24,9 @@ type compiledRule struct {
     srcIP    string
     dstIP    string
     ports    portMatcher
+    dnsSuf   string
+    dnsRe    *regexp.Regexp
+    dnsType  string
 }
 
 type portMatcher struct{
@@ -82,6 +86,11 @@ func NewSignatureDetector(rules []config.Rule) *SignatureDetector {
             if pfx, err := netip.ParsePrefix(r.DstCIDR); err == nil { cr.dstCIDR = &pfx }
         }
         cr.ports = parsePorts(r.DstPorts, r.DstPort)
+        cr.dnsSuf = strings.ToLower(strings.TrimSuffix(r.DNSQnameSuffix, "."))
+        cr.dnsType = strings.ToUpper(r.DNSQtype)
+        if r.DNSQnameRegex != "" {
+            if re, err := regexp.Compile(r.DNSQnameRegex); err == nil { cr.dnsRe = re }
+        }
         out = append(out, cr)
     }
     return &SignatureDetector{rules: out}
@@ -119,5 +128,16 @@ func sigMatch(r compiledRule, ev types.PacketEvent) bool {
     if r.srcIP != "" && r.srcIP != ev.SrcIP { return false }
     if r.dstIP != "" && r.dstIP != ev.DstIP { return false }
     if !r.ports.Match(ev.DstPort) { return false }
+    // DNS matchers (optional)
+    if r.dnsSuf != "" {
+        qn := strings.TrimSuffix(strings.ToLower(ev.DNSQName), ".")
+        if !strings.HasSuffix(qn, r.dnsSuf) { return false }
+    }
+    if r.dnsRe != nil {
+        if !r.dnsRe.MatchString(ev.DNSQName) { return false }
+    }
+    if r.dnsType != "" {
+        if strings.ToUpper(ev.DNSQType) != r.dnsType { return false }
+    }
     return true
 }

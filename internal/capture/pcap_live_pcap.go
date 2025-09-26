@@ -45,6 +45,15 @@ func (s *LivePCAPSource) Next() (types.PacketEvent, bool) {
         ev.DstIP = ipv6.DstIP.String()
         ev.Proto = "ip6"
     }
+    if dnsL := pkt.Layer(layers.LayerTypeDNS); dnsL != nil {
+        dns := dnsL.(*layers.DNS)
+        if dns.QR == false && len(dns.Questions) > 0 { // query
+            ev.Proto = "dns"
+            ev.DNSQName = string(dns.Questions[0].Name)
+            ev.DNSQType = dns.Questions[0].Type.String()
+            // Best-effort port: take UDP/TCP dst port if present
+        }
+    }
     if tcpL := pkt.Layer(layers.LayerTypeTCP); tcpL != nil {
         tcp := tcpL.(*layers.TCP)
         ev.DstPort = uint16(tcp.DstPort)
@@ -52,9 +61,8 @@ func (s *LivePCAPSource) Next() (types.PacketEvent, bool) {
     } else if udpL := pkt.Layer(layers.LayerTypeUDP); udpL != nil {
         udp := udpL.(*layers.UDP)
         ev.DstPort = uint16(udp.DstPort)
-        ev.Proto = "udp"
+        if ev.Proto == "" { ev.Proto = "udp" }
     }
     if ev.TS.IsZero() { ev.TS = time.Now().UTC() }
     return ev, true
 }
-

@@ -16,6 +16,7 @@ Layout:
 - `cmd/ids` — thin CLI reading PacketEvent JSON from stdin and emitting Alert JSON.
 - `internal/detect` — detection engines (port scan in this iteration).
 - `internal/detect` — detection engines: port scan, connection-rate, signatures.
+- `internal/detect` — DNS anomaly detector (unique subdomains, long names, rate).
 - `internal/pipeline` — event fan‑out and alert aggregation.
 - `internal/types` — shared data types.
 
@@ -90,6 +91,11 @@ Metrics endpoint:
 ./ids -config config.example.json -metrics-listen :9090
 # scrape http://localhost:9090/metrics
 ```
+
+DNS anomaly and signatures:
+
+- dns_anomaly config tunes window, unique subdomain threshold, long name length, and per-source rate.
+- Signatures support CIDR, port ranges, and DNS matchers (suffix, regex, qtype).
 
 Linting and coverage locally:
 

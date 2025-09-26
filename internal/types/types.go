@@ -10,6 +10,9 @@ type PacketEvent struct {
     DstIP   string    `json:"dst_ip"`
     DstPort uint16    `json:"dst_port"`
     Proto   string    `json:"proto"` // e.g., "tcp", "udp"
+    // DNS (optional)
+    DNSQName string `json:"dns_qname,omitempty"`
+    DNSQType string `json:"dns_qtype,omitempty"`
 }
 
 // Alert represents a detection output item.
@@ -23,4 +26,3 @@ type Alert struct {
     WindowSecs int       `json:"window_secs"`
     Details    string    `json:"details,omitempty"`
 }
-

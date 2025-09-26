@@ -46,6 +46,14 @@ func main() {
             Window:    cfg.ConnRate.Window,
         }))
     }
+    if cfg.DNSAnomaly.Enabled {
+        dets = append(dets, detect.NewDNSAnomalyDetector(detect.DNSAnomalyConfig{
+            Window:                   cfg.DNSAnomaly.Window,
+            UniqueSubsPerBaseThresh:  cfg.DNSAnomaly.UniqueSubsPerBaseThresh,
+            LongNameLength:           cfg.DNSAnomaly.LongNameLength,
+            QueryRatePerSrcThreshold: cfg.DNSAnomaly.QueryRatePerSrcThreshold,
+        }))
+    }
     if len(cfg.Rules) > 0 {
         dets = append(dets, detect.NewSignatureDetector(cfg.Rules))
     }
